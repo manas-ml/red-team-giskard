@@ -1,0 +1,7 @@
+giskard[scan,anthropic]>=3.0.1,<4
+python-dotenv>=1.0
+pytest>=8
+pytest-asyncio>=0.23
+# Optional, for poc/06_third_party.py:
+# giskard-scan[garak]
+# giskard-scan[deepteam]

@@ -1,0 +1,44 @@
+name: red-team
+
+on:
+  pull_request:
+    paths: ["target/**", "poc/**", "tests/**", "requirements.txt"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Agent version to gate"
+        default: "v2"
+  schedule:
+    - cron: "17 3 * * 1"   # weekly regression run
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt
+      - run: pytest -q -m "not live"
+
+  live-gate:
+    needs: offline
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      RUN_REDTEAM: "1"
+      DO_NOT_TRACK: "1"
+      REDTEAM_VERSION: ${{ github.event.inputs.version || 'v2' }}
+      REDTEAM_THRESHOLD: "0.9"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt
+      - run: pytest -q -m live --junitxml=reports/pytest-live.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: redteam-reports
+          path: reports/
